@@ -21,8 +21,8 @@ def train():
     data_HR,data_LR = Load_Train_Data(Train.DataSet_HR,Train.DataSet_HR)
 ### time domain
 
-    input_LR_placeholder = tf.placeholder(tf.float32,[Train.BatchSize,96,96,3])
-    input_HR_placeholder = tf.placeholder(tf.float32,[Train.BatchSize,384,384,3])
+    input_LR_placeholder = tf.placeholder('float32',[Train.BatchSize,96,96,3],name='input_LR_placeholder')
+    input_HR_placeholder = tf.placeholder('float32',[Train.BatchSize,384,384,3],name='input_HR_placeholder')
     learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 
     out = SD_Net(input_LR_placeholder,'SD_Net')
@@ -37,8 +37,8 @@ def train():
 
 
 ### frequence domain
-    input_LR_placeholder_F = tf.placeholder(tf.float32,[Train.BatchSize,96,96,3])
-    input_HR_placeholder_F = tf.placeholder(tf.float32,[Train.BatchSize,384,384,3])
+    input_LR_placeholder_F = tf.placeholder('float32',[Train.BatchSize,96,96,3],name='input_LR_placeholder_F')
+    input_HR_placeholder_F = tf.placeholder('float32',[Train.BatchSize,384,384,3],name='input_HR_placeholder_F')
     out_F = SD_Net(input_LR_placeholder_F,'SD_Net_F')
 
     ###Loss
@@ -52,8 +52,8 @@ def train():
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        merged = tf.summary.merge_all()
-        summary_writer = tf.summary.FileWriter(os.getcwd()+'/tensorboard',sess.graph)
+        #merged = tf.summary.merge_all()
+        #summary_writer = tf.summary.FileWriter(os.getcwd()+'/tensorboard',sess.graph)
         epoch_learning_rate = Train.init_learning_rate
         batch_HR = [None] * Train.BatchSize
         batch_LR = [None] * Train.BatchSize
@@ -68,27 +68,36 @@ def train():
             for step in range(0,len(data_HR),Train.BatchSize):
                 for n in range(0,Train.BatchSize):
                     batch_HR[n] = data_HR[pre_index+n]
+                    batch_HR[n] = batch_HR[n].astype('float32')
                     batch_LR[n] = data_LR[pre_index+n]
+                    batch_LR[n] = batch_LR[n].astype('float32')
+                """
+                print("batch_LR shape")
+                print(np.array(batch_LR).shape)
+                print(np.array(batch_LR).dtype)
+                print("batch_HR shape")
+                print(np.array(batch_HR).shape)
+                print(np.array(batch_LR).dtype)
+                """
 
                 Loss_run , _ = sess.run([Loss_L1,train_run],{input_LR_placeholder: batch_LR, input_HR_placeholder: batch_HR, learning_rate:epoch_learning_rate})
                 print("Epoch is %d , step is %d ,time is %4.4f,loss is %.8f "%(i ,step ,time.time() - step_time ,Loss_run))
-                step_time_F = time.time()
-
-                for index in range(0,Train.BatchSize):
-                    batch_HR_F[index] = np.fft.fft2(data_HR[pre_index+index])
-                    batch_HR_F[index] = np.abs(batch_HR_F[index])
-                    batch_LR_F[index] = np.fft.fft2(data_LR[pre_index+index])
-                    batch_LR_F[index] = np.abs(batch_LR_F[index])
-                print("batch_LR_F shape")
-                print(np.array(batch_LR_F).shape())
-
-                Loss_run_F , _, summary = sess.run([Loss_L1_F,train_run_F,merged],{input_LR_placeholder_F:batch_LR_F,input_HR_placeholder_F:batch_HR_F,learning_rate:epoch_learning_rate})
+                for k in range(3):
+                    for index in range(0,Train.BatchSize):
+                        batch_HR_F[index] = np.fft.fft2(data_HR[pre_index+index])
+                        batch_HR_F[index] = np.abs(batch_HR_F[index])
+                        batch_HR_F[index] = batch_HR_F[index].astype('float32')
+                        batch_LR_F[index] = np.fft.fft2(data_LR[pre_index+index])
+                        batch_LR_F[index] = np.abs(batch_LR_F[index])
+                        batch_LR_F[index] = batch_LR_F[index].astype('float32')
+                    step_time_F = time.time()
+                    Loss_run_F , _= sess.run([Loss_L1_F,train_run_F],{input_LR_placeholder_F:batch_LR_F,input_HR_placeholder_F:batch_HR_F,learning_rate:epoch_learning_rate})
+                    print("Epoch is %d , step is %d ,time is %4.4f,Loss_F is %.8f "%(i ,step ,time.time() - step_time_F ,Loss_run_F))
+                #summary_writer.add_summary(summary,i*Train.BatchSize+step)
                 pre_index = pre_index+Train.BatchSize
-                print("Epoch is %d , step is %d ,time is %4.4f,Loss_F is %.8f "%(i ,step ,time.time() - step_time_F ,Loss_run_F))
-                summary_writer.add_summary(summary,i*Train.BatchSize+step)
 
             if i % 100 == 0:
-                saver.save(sess=sess,save_path=checkpoint_dir+'SD_Net.ckpt')
+                saver.save(sess=sess,save_path=checkpoint_dir+'/SD_Net.ckpt')
 
 
 
