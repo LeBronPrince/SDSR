@@ -37,11 +37,11 @@ def Load_Test_Data(datadir_HR,datadir_LR,path_HR,path_LR):
     test_set_HR = []
     test_set_LR = []
     imgs_files_list_HR = os.listdir(datadir_HR)
-    imgs_files_list_LR = os.listdir(datadir_lR)
+    imgs_files_list_LR = os.listdir(datadir_LR)
     for i in range(len(imgs_files_list_HR)):
-        imgs = scipy.misc.imread(imgs_files_list_HR[i])
+        imgs = scipy.misc.imread(path_HR+imgs_files_list_HR[i])
         test_set_HR.append(imgs)
     for i in range(len(imgs_files_list_LR)):
-        imgs = scipy.misc.imread(imgs_files_list_LR[i])
-        test_set_lR.append(imgs)
+        imgs = scipy.misc.imread(path_LR+imgs_files_list_LR[i])
+        test_set_LR.append(imgs)
     return test_set_HR,test_set_LR
