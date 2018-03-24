@@ -7,7 +7,9 @@ reduction_ratio = 4
 
 def conv_layer(input, filter, kernel, stride=1, padding='SAME', layer_name="conv", activation=True):
     with tf.name_scope(layer_name):
-        network = tf.layers.conv2d(inputs=input, use_bias=True, filters=filter, kernel_size=kernel, strides=stride, padding=padding)
+        w_init = tf.random_normal_initializer(stddev=0.02)
+        b_init = tf.constant_initializer(value=0.0)
+        network = tf.layers.conv2d(inputs=input, use_bias=True, filters=filter, kernel_size=kernel, strides=stride, padding=padding,kernel_initializer=w_init,bias_initializer=b_init)
         if activation :
             network = tf.nn.relu(network)
         return network
@@ -58,8 +60,6 @@ class SD_Unit():
             conv5 = conv_layer(conv4,filter=48,kernel=[3,3],stride=1,padding='SAME',layer_name="conv7_2")
             conv6 = conv_layer(conv5,filter=64,kernel=[3,3],stride=1,padding='SAME',layer_name="conv7_3")
             inception = tf.concat([conv1,conv3,conv6],axis=3)
-            print("this is Squeeze_excitation_layeroutyput shape")
-            print(int(inception.get_shape().as_list()[-1]))
             out = Squeeze_excitation_layer(inception,int(inception.get_shape().as_list()[-1]),ratio=reduction_ratio,layer_name=name_scope)
         return out
 
@@ -91,7 +91,7 @@ class SD_Net():
     def Build_Net(self,x,name_scope):
         with tf.name_scope(name_scope):
             conv1 = conv_layer(x,filter=64,kernel=[3,3],padding='SAME',stride=2,layer_name=name_scope+'conv1')
-            conv2 = conv_layer(x,filter=64,kernel=[3,3],stride=2,padding='SAME',layer_name=name_scope+"conv2")
+            conv2 = conv_layer(conv1,filter=64,kernel=[3,3],stride=2,padding='SAME',layer_name=name_scope+"conv2")
 
             ###SD_Block
             SD_B1 = SD_Block(conv2,name_scope=name_scope+'Block1',layers_num=4).model
@@ -106,7 +106,14 @@ class SD_Net():
             GLL_33 = conv_layer(GLL_11,filter=64,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"GLL_33")
             UpSample = conv2+GLL_33
             UpSample = conv_layer(UpSample,filter=64,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"UpSample")
+
             input_layer = InputLayer(UpSample, name=name_scope+'in_tensorlayer')
-            Subpixel = SubpixelConv2d(input_layer, scale=8, n_out_channel=None, act=tf.nn.relu, name=name_scope+'Subpixel')
+            Subpixel1 = SubpixelConv2d(input_layer, scale=4, n_out_channel=None, act=tf.nn.relu, name=name_scope+'Subpixel1')
+            out1 = conv_layer(Subpixel1.outputs,filter=48,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"out1")
+            input_layer1 = InputLayer(out1, name=name_scope+'in_tensorlayer1')
+            Subpixel = SubpixelConv2d(input_layer1, scale=4, n_out_channel=None, act=tf.nn.relu, name=name_scope+'Subpixel')
+            print("this is Subpixel shape")
+            print(Subpixel.outputs.get_shape())
             out = conv_layer(Subpixel.outputs,filter=3,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"out")
+            print(out.get_shape())
         return out

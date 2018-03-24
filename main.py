@@ -31,22 +31,12 @@ def train():
     Loss_L1 = tf.abs((tf.reduce_mean(input_HR_placeholder - out.model)))
     tf.summary.scalar('Loss',Loss_L1)
     tf.summary.scalar('Learning_rate',learning_rate)
-    optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=Train.momentum, use_nesterov=True)
+    optimizer = tf.train.AdamOptimizer(learning_rate,beta1=Train.beta)
     train_run = optimizer.minimize(Loss_L1)
 
 
 ### frequence domain
-    input_LR_placeholder_F = tf.placeholder('float32',[Train.BatchSize,96,96,3],name='input_LR_placeholder_F')
-    input_HR_placeholder_F = tf.placeholder('float32',[Train.BatchSize,384,384,3],name='input_HR_placeholder_F')
-    out_F = SD_Net(input_LR_placeholder_F,'SD_Net_F')
-    ###Loss
-    Loss_L1_F = tf.log(tf.abs(tf.reduce_mean(input_HR_placeholder_F - out_F.model)))
-    #tf.summary.scalar('Loss_F',Loss_L1_F)
-    saver = tf.train.Saver(tf.global_variables())
-    #Loss_F1
-    optimizer_F = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=Train.momentum, use_nesterov=True)
-    train_run_F = optimizer.minimize(Loss_L1_F)
-
+    saver = tf.train.Saver()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         merged = tf.summary.merge_all()
@@ -82,8 +72,8 @@ def train():
                 Loss_run_F , _= sess.run([Loss_L1_F,train_run_F],{input_LR_placeholder_F:batch_LR_F,input_HR_placeholder_F:batch_HR_F,learning_rate:epoch_learning_rate})
                 print("Epoch is %d , step is %d ,time is %4.4f,Loss_F is %.8f "%(i ,step ,time.time() - step_time_F ,Loss_run_F))
                 """
-                summary_writer.add_summary(summary,i*Train.BatchSize+step)
                 pre_index = pre_index+Train.BatchSize
+            summary_writer.add_summary(summary,i*Train.BatchSize+step)
 
             if i % 100 == 0:
                 saver.save(sess=sess,save_path=checkpoint_dir+'/SD_Net.ckpt')
