@@ -18,7 +18,7 @@ def train():
     tensorboard_dir = os.getcwd()+'/tensorboard'
     tl.files.exists_or_mkdir(tensorboard_dir)
 
-    data_HR,data_LR = Load_Train_Data(Train.DataSet_HR,Train.DataSet_HR)
+    data_HR = Load_Train_Data(Train.DataSet_HR,Train.DataSet_HR)
 ### time domain
 
     input_LR_placeholder = tf.placeholder('float32',[Train.BatchSize,32,32,3],name='input_LR_placeholder')
@@ -46,22 +46,21 @@ def train():
         epoch_learning_rate = Train.init_learning_rate
         batch_HR = [None] * Train.BatchSize
         batch_LR = [None] * Train.BatchSize
-        batch_HR_F = [None] * Train.BatchSize
-        batch_LR_F = [None] * Train.BatchSize
+
         for i in range(Train.epochs):
             step_time = time.time()
             pre_index = 0
             for step in range(0,len(data_HR),Train.BatchSize):
                 for n in range(0,Train.BatchSize):
-                    batch_HR[n] = data_HR[pre_index+n]
+                    batch_HR[n] = crop_imgs(data_HR[pre_index+n], is_random=True)
+                    batch_LR[n] = downsample(batch_HR[n])
                     batch_HR[n] = batch_HR[n].astype('float32')
-                    batch_LR[n] = data_LR[pre_index+n]
                     batch_LR[n] = batch_LR[n].astype('float32')
                 Loss_run , _ ,summary= sess.run([Mse_Loss,train_run,merged],{input_LR_placeholder: batch_LR, input_HR_placeholder: batch_HR, learning_rate:epoch_learning_rate})
                 print("Epoch is %d , step is %d ,time is %4.4f,loss is %.8f "%(i ,step ,time.time() - step_time ,Loss_run))
                 pre_index = pre_index+Train.BatchSize
             epoch_iter = (i + 1) // Train.lr_delay
-            epoch_learning_rate = epoch_learning_rate/10*epoch_iter
+            epoch_learning_rate = epoch_learning_rate/2*epoch_iter
             summary_writer.add_summary(summary,i)
 
             if i % 1000 == 0:

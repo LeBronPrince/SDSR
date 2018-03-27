@@ -20,18 +20,14 @@ def downsample(x):
     return x
 
 
-def Load_Train_Data(datadir,path):
+def Load_Train_Data(datadir_HR,path_HR):
     train_set_HR = []
-    train_set_LR = []
-    imgs_files_list = os.listdir(datadir)
-    for i in range(len(imgs_files_list)):
-        imgs = scipy.misc.imread(path+imgs_files_list[i])
-        imgs_HR = crop_imgs(imgs)
-        imgs_LR = downsample(imgs_HR)
-        train_set_HR.append(imgs_HR)
-        train_set_LR.append(imgs_LR)
+    imgs_files_list_HR = os.listdir(datadir_HR)
+    for i in range(len(imgs_files_list_HR)):
+        imgs_HRs = scipy.misc.imread(path_HR+imgs_files_list_HR[i])
+        train_set_HR.append(imgs_HRs)
         print(i)
-    return train_set_HR,train_set_LR
+    return train_set_HR
 
 def Load_Test_Data(datadir_HR,datadir_LR,path_HR,path_LR):
     test_set_HR = []
