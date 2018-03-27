@@ -7,14 +7,14 @@ import tensorlayer as tl
 from tensorlayer.prepro import *
 
 def crop_imgs(x, is_random=True):
-    x = crop(x, wrg=384, hrg=384, is_random=is_random)
+    x = crop(x, wrg=128, hrg=128, is_random=is_random)
     x = x / (255. / 2.)
     x = x - 1.
     return x
 
 def downsample(x):
     # We obtained the LR images by downsampling the HR images using bicubic kernel with downsampling factor r = 4.
-    x = imresize(x, size=[96, 96], interp='bicubic', mode=None)
+    x = imresize(x, size=[32, 32], interp='bicubic', mode=None)
     x = x / (255. / 2.)
     x = x - 1.
     return x

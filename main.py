@@ -21,18 +21,20 @@ def train():
     data_HR,data_LR = Load_Train_Data(Train.DataSet_HR,Train.DataSet_HR)
 ### time domain
 
-    input_LR_placeholder = tf.placeholder('float32',[Train.BatchSize,96,96,3],name='input_LR_placeholder')
-    input_HR_placeholder = tf.placeholder('float32',[Train.BatchSize,384,384,3],name='input_HR_placeholder')
+    input_LR_placeholder = tf.placeholder('float32',[Train.BatchSize,32,32,3],name='input_LR_placeholder')
+    input_HR_placeholder = tf.placeholder('float32',[Train.BatchSize,128,128,3],name='input_HR_placeholder')
     learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 
     out = SD_Net(input_LR_placeholder,'SD_Net')
 
     ###Loss
-    Loss_L1 = tf.abs((tf.reduce_mean(input_HR_placeholder - out.model)))
-    tf.summary.scalar('Loss',Loss_L1)
+    #Loss_L1 = tf.abs((tf.reduce_mean(input_HR_placeholder - out.model)))
+    Mse_Loss = tl.cost.mean_squared_error(out.model , input_HR_placeholder, is_mean=True)
+    tf.summary.scalar('Loss',Mse_Loss)
     tf.summary.scalar('Learning_rate',learning_rate)
     optimizer = tf.train.AdamOptimizer(learning_rate,beta1=Train.beta)
-    train_run = optimizer.minimize(Loss_L1)
+    train_run = optimizer.minimize(Mse_Loss)
+
 
 
 ### frequence domain
@@ -48,34 +50,21 @@ def train():
         batch_LR_F = [None] * Train.BatchSize
         for i in range(Train.epochs):
             step_time = time.time()
-            if i % 200 == 0:
-                epoch_learning_rate = epoch_learning_rate/10
             pre_index = 0
-
             for step in range(0,len(data_HR),Train.BatchSize):
                 for n in range(0,Train.BatchSize):
                     batch_HR[n] = data_HR[pre_index+n]
                     batch_HR[n] = batch_HR[n].astype('float32')
                     batch_LR[n] = data_LR[pre_index+n]
                     batch_LR[n] = batch_LR[n].astype('float32')
-                Loss_run , _ ,summary= sess.run([Loss_L1,train_run,merged],{input_LR_placeholder: batch_LR, input_HR_placeholder: batch_HR, learning_rate:epoch_learning_rate})
+                Loss_run , _ ,summary= sess.run([Mse_Loss,train_run,merged],{input_LR_placeholder: batch_LR, input_HR_placeholder: batch_HR, learning_rate:epoch_learning_rate})
                 print("Epoch is %d , step is %d ,time is %4.4f,loss is %.8f "%(i ,step ,time.time() - step_time ,Loss_run))
-                """
-                for index in range(0,Train.BatchSize):
-                    batch_HR_F[index] = np.fft.fft2(data_HR[pre_index+index])
-                    batch_HR_F[index] = np.abs(batch_HR_F[index])
-                    batch_HR_F[index] = batch_HR_F[index].astype('float32')
-                    batch_LR_F[index] = np.fft.fft2(data_LR[pre_index+index])
-                    batch_LR_F[index] = np.abs(batch_LR_F[index])
-                    batch_LR_F[index] = batch_LR_F[index].astype('float32')
-                step_time_F = time.time()
-                Loss_run_F , _= sess.run([Loss_L1_F,train_run_F],{input_LR_placeholder_F:batch_LR_F,input_HR_placeholder_F:batch_HR_F,learning_rate:epoch_learning_rate})
-                print("Epoch is %d , step is %d ,time is %4.4f,Loss_F is %.8f "%(i ,step ,time.time() - step_time_F ,Loss_run_F))
-                """
                 pre_index = pre_index+Train.BatchSize
-            summary_writer.add_summary(summary,i*Train.BatchSize+step)
+            epoch_iter = (i + 1) // Train.lr_delay
+            epoch_learning_rate = epoch_learning_rate/10*epoch_iter
+            summary_writer.add_summary(summary,i)
 
-            if i % 100 == 0:
+            if i % 1000 == 0:
                 saver.save(sess=sess,save_path=checkpoint_dir+'/SD_Net.ckpt')
 
 

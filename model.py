@@ -2,16 +2,22 @@ import tensorflow as tf
 import tensorlayer as tl
 from tensorlayer.layers import *
 import numpy as np
-
+from tensorlayer.activation import *
 reduction_ratio = 4
-
+"""
+def LeakyRelu(x, leak=0.2, name="LeakyRelu"):
+    with tf.name_scope(name):
+         f1 = 0.5 * (1 + leak)
+         f2 = 0.5 * (1 - leak)
+         return f1 * x + f2 * tf.abs(x)
+"""
 def conv_layer(input, filter, kernel, stride=1, padding='SAME', layer_name="conv", activation=True):
     with tf.name_scope(layer_name):
         w_init = tf.random_normal_initializer(stddev=0.02)
         b_init = tf.constant_initializer(value=0.0)
         network = tf.layers.conv2d(inputs=input, use_bias=True, filters=filter, kernel_size=kernel, strides=stride, padding=padding,kernel_initializer=w_init,bias_initializer=b_init)
         if activation :
-            network = tf.nn.relu(network)
+            network = leaky_relu(x=network)
         return network
 
 def Fully_connected(x, units, layer_name='fully_connected'):
@@ -35,7 +41,7 @@ def global_avg_pool(incoming, name="GlobalAvgPool"):
     #tf.add_to_collection(tf.GraphKeys.LAYER_TENSOR + '/' + name, inference)
     return inference
 
-
+"""
 def Squeeze_excitation_layer(input_x, out_dim, ratio, layer_name):
     with tf.name_scope(layer_name):
         squeeze = global_avg_pool(input_x,layer_name+'global_avg_pool')
@@ -46,13 +52,14 @@ def Squeeze_excitation_layer(input_x, out_dim, ratio, layer_name):
         excitation = tf.reshape(excitation, [-1,1,1,out_dim])
         scale = input_x * excitation
     return scale
-
+"""
 class SD_Unit():
     def __init__(self,x,name_scope):
         self.model = self.Build_Unit(x,name_scope)
 
     def Build_Unit(self,x,name_scope):
         with tf.name_scope(name_scope):
+            """
             conv1 = conv_layer(x,filter=32,kernel=[3,3],stride=1,padding='SAME',layer_name="conv3")
             conv2 = conv_layer(x,filter=32,kernel=[3,3],stride=1,padding='SAME',layer_name="conv5_1")
             conv3 = conv_layer(conv2,filter=48,kernel=[3,3],stride=1,padding='SAME',layer_name="conv5_2")
@@ -61,7 +68,9 @@ class SD_Unit():
             conv6 = conv_layer(conv5,filter=64,kernel=[3,3],stride=1,padding='SAME',layer_name="conv7_3")
             inception = tf.concat([conv1,conv3,conv6],axis=3)
             out = Squeeze_excitation_layer(inception,int(inception.get_shape().as_list()[-1]),ratio=reduction_ratio,layer_name=name_scope)
-        return out
+            """
+            conv1 = conv_layer(x,filter=32,kernel=[3,3],stride=1,padding='SAME',layer_name="conv3")
+        return conv1
 
 
 class SD_Block():
@@ -90,18 +99,18 @@ class SD_Net():
 
     def Build_Net(self,x,name_scope):
         with tf.name_scope(name_scope):
-            conv1 = conv_layer(x,filter=64,kernel=[3,3],padding='SAME',stride=2,layer_name=name_scope+'conv1')
-            conv2 = conv_layer(conv1,filter=64,kernel=[3,3],stride=2,padding='SAME',layer_name=name_scope+"conv2")
+            conv1 = conv_layer(x,filter=64,kernel=[3,3],padding='SAME',stride=1,layer_name=name_scope+'conv1')
+            conv2 = conv_layer(conv1,filter=64,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"conv2")
 
             ###SD_Block
-            SD_B1 = SD_Block(conv2,name_scope=name_scope+'Block1',layers_num=4).model
-            SD_B2 = SD_Block(SD_B1,name_scope=name_scope+'Block2',layers_num=4).model
-            SD_B3 = SD_Block(SD_B2,name_scope=name_scope+'Block3',layers_num=4).model
-            SD_B4 = SD_Block(SD_B3,name_scope=name_scope+'Block4',layers_num=4).model
-            SD_B5 = SD_Block(SD_B4,name_scope=name_scope+'Block5',layers_num=4).model
-            SD_B6 = SD_Block(SD_B5,name_scope=name_scope+'Block6',layers_num=4).model
+            SD_B1 = SD_Block(conv2,name_scope=name_scope+'Block1',layers_num=6).model
+            SD_B2 = SD_Block(SD_B1,name_scope=name_scope+'Block2',layers_num=6).model
+            SD_B3 = SD_Block(SD_B2,name_scope=name_scope+'Block3',layers_num=6).model
+            SD_B4 = SD_Block(SD_B3,name_scope=name_scope+'Block4',layers_num=6).model
+            #SD_B5 = SD_Block(SD_B4,name_scope=name_scope+'Block5',layers_num=4).model
+            #SD_B6 = SD_Block(SD_B5,name_scope=name_scope+'Block6',layers_num=4).model
 
-            Block_End = tf.concat([SD_B1,SD_B2,SD_B3,SD_B4,SD_B5,SD_B6],axis=3)
+            Block_End = tf.concat([SD_B1,SD_B2,SD_B3,SD_B4],axis=3)
             GLL_11 = conv_layer(Block_End,filter=64,kernel=[1,1],stride=1,padding='VALID',layer_name=name_scope+"GLL_11")
             GLL_33 = conv_layer(GLL_11,filter=64,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"GLL_33")
             UpSample = conv2+GLL_33
@@ -109,11 +118,8 @@ class SD_Net():
 
             input_layer = InputLayer(UpSample, name=name_scope+'in_tensorlayer')
             Subpixel1 = SubpixelConv2d(input_layer, scale=4, n_out_channel=None, act=tf.nn.relu, name=name_scope+'Subpixel1')
-            out1 = conv_layer(Subpixel1.outputs,filter=48,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"out1")
-            input_layer1 = InputLayer(out1, name=name_scope+'in_tensorlayer1')
-            Subpixel = SubpixelConv2d(input_layer1, scale=4, n_out_channel=None, act=tf.nn.relu, name=name_scope+'Subpixel')
             print("this is Subpixel shape")
-            print(Subpixel.outputs.get_shape())
-            out = conv_layer(Subpixel.outputs,filter=3,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"out")
+            print(Subpixel1.outputs.get_shape())
+            out = conv_layer(Subpixel1.outputs,filter=3,kernel=[3,3],stride=1,padding='SAME',layer_name=name_scope+"out")
             print(out.get_shape())
         return out
